@@ -15,7 +15,7 @@
   <p>Redirecting...</p>
   <script>
     async function redirect() {
-      // Extract slug from path: /telegram -> "telegram"
+      // Extract slug from path
       const slug = window.location.pathname.split('/').filter(Boolean).pop() || '';
 
       if (!slug || slug.endsWith('.html') || slug.includes('.')) {
@@ -23,36 +23,47 @@
         return;
       }
 
-      // Detect owner from hostname: ziploot.github.io -> ziploot
+      // Detect owner from hostname
       const owner = window.location.hostname.split('.')[0];
       const repo  = owner + '.github.io';
-
-      // Fetch redirects.json directly from raw GitHub (bypasses Pages CDN cache)
       const rawUrl = 'https://raw.githubusercontent.com/' + owner + '/' + repo + '/main/redirects.json?_=' + Date.now();
 
       try {
         const res = await fetch(rawUrl);
-        if (!res.ok) throw new Error('Could not load redirects (' + res.status + ')');
+        if (!res.ok) throw new Error('Could not load redirects');
         const redirects = await res.json();
         const targetUrl = redirects[slug.trim().toLowerCase()];
 
         if (targetUrl) {
-          // Fire analytics if configured (stored in localStorage by admin panel)
-          const formId      = localStorage.getItem('GOOGLE_FORM_ID');
-          const ipEntry     = localStorage.getItem('ENTRY_IP');
-          const slugEntry   = localStorage.getItem('ENTRY_SLUG');
-          const countryEntry= localStorage.getItem('ENTRY_COUNTRY');
-          const uaEntry     = localStorage.getItem('ENTRY_UA');
+          // Read config dynamically from redirects.json (not localStorage, so it works for all users!)
+          const conf = redirects._config || {};
+          const formId = conf.formId;
+          const slugEntry = conf.entrySlug;
+          const ipEntry = conf.entryIp;
+          const countryEntry = conf.entryCountry;
+          const uaEntry = conf.entryUa;
 
           if (formId && ipEntry && slugEntry && countryEntry && uaEntry) {
+            let ip = "Unknown";
+            let country = "Unknown";
+            
+            // Safe fetch: Geolocation fetch failure (like adblockers blocking ipapi) won't stop form submission
             try {
               const geo = await fetch('https://ipapi.co/json/');
-              const gd  = await geo.json();
+              if (geo.ok) {
+                const gd = await geo.json();
+                ip = gd.ip || "Unknown";
+                country = gd.country_name || "Unknown";
+              }
+            } catch(e) {}
+
+            try {
               const payload = new URLSearchParams();
               payload.append('entry.' + slugEntry,    slug);
-              payload.append('entry.' + ipEntry,      gd.ip            || 'Unknown');
-              payload.append('entry.' + countryEntry, gd.country_name  || 'Unknown');
+              payload.append('entry.' + ipEntry,      ip);
+              payload.append('entry.' + countryEntry, country);
               payload.append('entry.' + uaEntry,      navigator.userAgent);
+              
               const formUrl = 'https://docs.google.com/forms/d/e/' + formId + '/formResponse';
               navigator.sendBeacon(formUrl, payload);
             } catch(e) {}
