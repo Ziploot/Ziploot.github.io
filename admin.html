@@ -364,17 +364,8 @@
       const pat = localStorage.getItem("GITHUB_PAT");
       const contentBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(redirects, null, 2))));
 
-      // Always fetch the absolute latest SHA before committing
-      try {
-        const shaRes = await fetch("https://api.github.com/repos/" + owner + "/" + repo + "/contents/redirects.json", {
-          headers: { "Authorization": "token " + pat, "Cache-Control": "no-cache" }
-        });
-        if (shaRes.ok) {
-          const shaData = await shaRes.json();
-          repoSha = shaData.sha;
-        }
-      } catch (e) {}
-
+      // Use repoSha maintained from loadRedirects() or previous successful save response.
+      // DO NOT re-fetch SHA here — GitHub API may return stale cached SHA which would corrupt repoSha.
       const res = await fetch("https://api.github.com/repos/" + owner + "/" + repo + "/contents/redirects.json", {
         method: "PUT",
         headers: { "Authorization": "token " + pat, "Content-Type": "application/json" },
@@ -383,13 +374,13 @@
 
       if (res.ok) {
         const responseData = await res.json();
-        // Update SHA from response so next save works without mismatch
+        // Always update repoSha from the PUT response (guaranteed fresh)
         repoSha = responseData.content.sha;
         renderTable();
       } else {
         const err = await res.json();
         alert("Error saving: " + err.message);
-        // Re-load fresh state on error
+        // On error, reload fresh state including correct SHA from API
         await loadRedirects();
       }
     }
