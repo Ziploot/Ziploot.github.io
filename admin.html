@@ -182,7 +182,7 @@
               <div><label>UserAgent Entry ID</label><input type="text" id="entryUa" placeholder="Parsed UA ID" tabindex="-1" /></div>
             </div>
           </div>
-          <button class="btn btn-primary" onclick="saveAnalyticsConfig()">Save Analytics Configuration</button>
+          <button class="btn btn-primary" id="saveConfigBtn" onclick="saveAnalyticsConfig()">Save Analytics Configuration</button>
         </div>
       </div>
     </div>
@@ -198,7 +198,6 @@
     if (hostnameParts.length >= 3 && hostnameParts[1] === "github" && hostnameParts[2] === "io") {
       owner = hostnameParts[0];
     }
-    // For root user repo (username.github.io), repo = username.github.io
     const repo = owner + ".github.io";
 
     const savedPat = localStorage.getItem("GITHUB_PAT");
@@ -223,19 +222,21 @@
       document.getElementById("wizardSection").style.display = "none";
       document.getElementById("dashboardSection").style.display = "block";
       document.getElementById("logoutBtn").style.display = "block";
+      
+      // Fallback pre-population from localStorage
       document.getElementById("prefilledLink").value = localStorage.getItem("PREFILLED_LINK") || "";
       document.getElementById("formId").value = localStorage.getItem("GOOGLE_FORM_ID") || "";
       document.getElementById("entrySlug").value = localStorage.getItem("ENTRY_SLUG") || "";
       document.getElementById("entryIp").value = localStorage.getItem("ENTRY_IP") || "";
       document.getElementById("entryCountry").value = localStorage.getItem("ENTRY_COUNTRY") || "";
       document.getElementById("entryUa").value = localStorage.getItem("ENTRY_UA") || "";
+      
       updateLiveLinkTip();
       loadRedirects();
     }
 
     function updateLiveLinkTip() {
       const slug = document.getElementById("newSlug").value.trim().toLowerCase() || "slug";
-      // Root user repo: https://owner.github.io/slug (no subfolder!)
       document.getElementById("liveLinkTip").textContent = "Short Link: https://" + owner + ".github.io/" + slug;
     }
 
@@ -273,21 +274,53 @@
       } catch (e) {}
     }
 
-    function saveAnalyticsConfig() {
-      localStorage.setItem("PREFILLED_LINK", document.getElementById("prefilledLink").value);
-      localStorage.setItem("GOOGLE_FORM_ID", document.getElementById("formId").value);
-      localStorage.setItem("ENTRY_SLUG", document.getElementById("entrySlug").value);
-      localStorage.setItem("ENTRY_IP", document.getElementById("entryIp").value);
-      localStorage.setItem("ENTRY_COUNTRY", document.getElementById("entryCountry").value);
-      localStorage.setItem("ENTRY_UA", document.getElementById("entryUa").value);
-      alert("Analytics configuration saved!");
+    async function saveAnalyticsConfig() {
+      const formId = document.getElementById("formId").value.trim();
+      const entrySlug = document.getElementById("entrySlug").value.trim();
+      const entryIp = document.getElementById("entryIp").value.trim();
+      const entryCountry = document.getElementById("entryCountry").value.trim();
+      const entryUa = document.getElementById("entryUa").value.trim();
+      const prefilled = document.getElementById("prefilledLink").value.trim();
+
+      if (!formId || !entrySlug || !entryIp || !entryCountry || !entryUa) {
+        alert("Please paste a valid Google Form Pre-filled link so it can parse entry IDs.");
+        return;
+      }
+
+      // Store in redirects map under the special key '_config'
+      redirects["_config"] = {
+        formId: formId,
+        entrySlug: entrySlug,
+        entryIp: entryIp,
+        entryCountry: entryCountry,
+        entryUa: entryUa,
+        prefilledLink: prefilled
+      };
+
+      // Backup locally
+      localStorage.setItem("PREFILLED_LINK", prefilled);
+      localStorage.setItem("GOOGLE_FORM_ID", formId);
+      localStorage.setItem("ENTRY_SLUG", entrySlug);
+      localStorage.setItem("ENTRY_IP", entryIp);
+      localStorage.setItem("ENTRY_COUNTRY", entryCountry);
+      localStorage.setItem("ENTRY_UA", entryUa);
+
+      const btn = document.getElementById("saveConfigBtn");
+      const originalText = btn.textContent;
+      btn.textContent = "Saving to GitHub...";
+      btn.disabled = true;
+
+      await commitToGitHub("Update Analytics Configuration");
+
+      btn.textContent = originalText;
+      btn.disabled = false;
+      alert("Analytics configuration saved and synced to GitHub! It works for all visitors now.");
     }
 
     async function loadRedirects() {
       const pat = localStorage.getItem("GITHUB_PAT");
       if (!pat) return;
       try {
-        // Load from GitHub API directly (always fresh, no caching)
         const metaRes = await fetch("https://api.github.com/repos/" + owner + "/" + repo + "/contents/redirects.json", {
           headers: { "Authorization": "token " + pat, "Cache-Control": "no-cache" }
         });
@@ -296,10 +329,28 @@
           repoSha = meta.sha;
           const content = atob(meta.content.replace(/\n/g, ""));
           redirects = JSON.parse(content);
+
+          // If GitHub has a config, update the UI input fields
+          if (redirects._config) {
+            const conf = redirects._config;
+            document.getElementById("prefilledLink").value = conf.prefilledLink || "";
+            document.getElementById("formId").value = conf.formId || "";
+            document.getElementById("entrySlug").value = conf.entrySlug || "";
+            document.getElementById("entryIp").value = conf.entryIp || "";
+            document.getElementById("entryCountry").value = conf.entryCountry || "";
+            document.getElementById("entryUa").value = conf.entryUa || "";
+            
+            // Backup in localStorage
+            localStorage.setItem("PREFILLED_LINK", conf.prefilledLink || "");
+            localStorage.setItem("GOOGLE_FORM_ID", conf.formId || "");
+            localStorage.setItem("ENTRY_SLUG", conf.entrySlug || "");
+            localStorage.setItem("ENTRY_IP", conf.entryIp || "");
+            localStorage.setItem("ENTRY_COUNTRY", conf.entryCountry || "");
+            localStorage.setItem("ENTRY_UA", conf.entryUa || "");
+          }
           renderTable();
         }
       } catch (e) {
-        // Fallback to GitHub Pages hosted file
         try {
           const res = await fetch("/redirects.json?v=" + Date.now());
           redirects = await res.json();
@@ -313,7 +364,10 @@
     function renderTable() {
       const container = document.getElementById("linksContainer");
       container.innerHTML = "";
-      const keys = Object.keys(redirects);
+      
+      // Filter out _config key so it doesn't show in the user's redirects list
+      const keys = Object.keys(redirects).filter(k => k !== "_config");
+      
       if (keys.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:14px;">No short links yet. Create one above!</div>';
         return;
@@ -341,11 +395,15 @@
       const url = document.getElementById("newUrl").value.trim();
       const pat = localStorage.getItem("GITHUB_PAT");
       if (!slug || !url || !pat) { alert("Please fill in both the Short Path and Destination URL."); return; }
+      if (slug === "_config") { alert("The slug name '_config' is reserved for system settings."); return; }
       if (!url.startsWith("http://") && !url.startsWith("https://")) { alert("URL must start with http:// or https://"); return; }
+      
       document.getElementById("createSpinner").style.display = "inline-block";
       document.getElementById("createBtn").disabled = true;
+      
       redirects[slug] = url;
       await commitToGitHub("Add short link /" + slug);
+      
       document.getElementById("createSpinner").style.display = "none";
       document.getElementById("createBtn").disabled = false;
       document.getElementById("newSlug").value = "";
@@ -385,7 +443,7 @@
           if (shaRes.ok) {
             const shaData = await shaRes.json();
             repoSha = shaData.sha;
-            // Merge: keep all remote entries + add our new ones
+            // Merge: keep all remote entries + config + add our new ones
             const remoteContent = JSON.parse(atob(shaData.content.replace(/\n/g, "")));
             redirects = Object.assign({}, remoteContent, redirects);
           }
