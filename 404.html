@@ -15,18 +15,11 @@
     async function redirect() {
       // 1. Get current path slug (e.g. /telegram -> telegram)
       const path = window.location.pathname;
-      const slug = path.split('/').filter(p => p.length > 0).pop() || '';
-      
-      if (!slug || slug.endsWith('.html')) {
-        document.body.innerHTML = '<h2>Link not found!</h2>';
-        return;
-      }
-
+      const slug = path.split('/').pop().trim().toLowerCase();
       try {
-        // 2. Fetch redirects map from root (absolute path)
         const res = await fetch('/redirects.json');
         const redirects = await res.json();
-        const targetUrl = redirects[slug.trim().toLowerCase()];
+        const targetUrl = redirects[slug];
 
         if (targetUrl) {
           // 3. Collect Analytics (Geolocation via public API)
@@ -42,6 +35,7 @@
           const userAgent = navigator.userAgent;
 
           // 4. Log to Google Sheets via pre-filled Google Form submit
+          // USER MUST SET THEIR FORM ACTION URL AND ENTRY IDS IN ADMIN OR MANUALLY
           const formId = localStorage.getItem("GOOGLE_FORM_ID");
           const ipEntry = localStorage.getItem("ENTRY_IP");
           const slugEntry = localStorage.getItem("ENTRY_SLUG");
@@ -55,6 +49,8 @@
             payload.append(`entry.${ipEntry}`, ip);
             payload.append(`entry.${countryEntry}`, country);
             payload.append(`entry.${uaEntry}`, userAgent);
+
+            // Send asynchronously via sendBeacon (does not block redirect)
             navigator.sendBeacon(formUrl, payload);
           }
 
