@@ -1,8 +1,8 @@
-# âš¡ Serverless URL Shortener & Click Analytics Tracker
+# ⚡ Serverless URL Shortener & Click Analytics Tracker
 
 A completely free, infinite capacity, and serverless URL shortener with Google Sheets click analytics (country, IP, useragent logging) built on GitHub Pages.
 
-## ðŸš€ 1-Click Auto-Installer (Windows, Linux, macOS)
+## 🚀 1-Click Auto-Installer (Windows, Linux, macOS)
 
 Run the command in your terminal to set up the local files:
 
