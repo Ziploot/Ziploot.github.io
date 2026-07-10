@@ -47,15 +47,28 @@
             let ip = "Unknown";
             let country = "Unknown";
             
-            // Safe fetch: Geolocation fetch failure (like adblockers blocking ipapi) won't stop form submission
+            // Safe fetch: Geolocation fetch with multi-fallback (ipwho.is -> freeipapi.com)
             try {
-              const geo = await fetch('https://ipapi.co/json/');
+              const geo = await fetch('https://ipwho.is/');
               if (geo.ok) {
                 const gd = await geo.json();
-                ip = gd.ip || "Unknown";
-                country = gd.country_name || "Unknown";
+                if (gd.success) {
+                  ip = gd.ip || "Unknown";
+                  country = gd.country || "Unknown";
+                }
+              } else {
+                throw new Error();
               }
-            } catch(e) {}
+            } catch(e) {
+              try {
+                const geo = await fetch('https://freeipapi.com/api/json');
+                if (geo.ok) {
+                  const gd = await geo.json();
+                  ip = gd.ipAddress || "Unknown";
+                  country = gd.countryName || "Unknown";
+                }
+              } catch(e2) {}
+            }
 
             try {
               const payload = new URLSearchParams();
