@@ -201,13 +201,13 @@
   <div class="container">
     
     <header>
-      <h1>âš¡ ZIPLOOT LINK MANAGER</h1>
+      <h1>⚡ ZIPLOOT LINK MANAGER</h1>
       <button class="btn btn-danger" id="logoutBtn" style="padding: 8px 16px; display: none;" onclick="deactivateManager()">Lock Admin</button>
     </header>
 
     <!-- STEP 1: Activation Wizard (Shown only when PAT is empty) -->
     <div class="card wizard-card" id="wizardSection">
-      <div class="wizard-logo">ðŸ”‘</div>
+      <div class="wizard-logo">🔑</div>
       <h2>Activate Your Link Manager</h2>
       <p class="wizard-desc">
         To create and save short links, please enter your GitHub Personal Access Token (PAT). This token is saved locally in your browser and used to write directly to your repository.
@@ -227,7 +227,7 @@
       
       <!-- Create Short Link Form -->
       <div class="card">
-        <h2>ðŸ”— Create New Short Link</h2>
+        <h2>🔗 Create New Short Link</h2>
         <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px;">
           <div>
             <label>Short Path (Slug)</label>
@@ -249,7 +249,7 @@
 
       <!-- Links List -->
       <div class="card">
-        <h2>ðŸ“‚ Active Redirects</h2>
+        <h2>📂 Active Redirects</h2>
         <div id="linksContainer">
           <!-- Populated dynamically -->
         </div>
@@ -258,8 +258,8 @@
       <!-- Advanced / Optional Settings (Collapsible) -->
       <div class="card">
         <div class="settings-header" onclick="toggleSettings()">
-          <h2>âš™ï¸ Click Analytics Settings (Optional)</h2>
-          <span id="settingsArrow" style="font-size: 18px; color: var(--text-muted);">â–¼</span>
+          <h2>⚙️ Click Analytics Settings (Optional)</h2>
+          <span id="settingsArrow" style="font-size: 18px; color: var(--text-muted);">▼</span>
         </div>
         
         <div class="settings-body" id="settingsBody">
@@ -268,10 +268,10 @@
           </p>
 
           <div class="warning-msg" id="linkWarning">
-            âš ï¸ Oops! It looks like you pasted a Google Sheet URL. Please paste a <strong>Google Form pre-filled link</strong> instead. (Check the guide for details!)
+            ⚠️ Oops! It looks like you pasted a Google Sheet URL. Please paste a <strong>Google Form pre-filled link</strong> instead. (Check the guide for details!)
           </div>
 
-          <label style="color: var(--success); font-weight: 700;">ðŸš€ Google Form Pre-filled Link</label>
+          <label style="color: var(--success); font-weight: 700;">🚀 Google Form Pre-filled Link</label>
           <input type="text" id="prefilledLink" placeholder="Paste your entry-populated google form link..." oninput="autoParseLink()" />
 
           <!-- Read-only parsed fields (hidden complexity) -->
@@ -320,9 +320,10 @@
     const hostnameParts = window.location.hostname.split('.');
     if (hostnameParts.length >= 3 && hostnameParts[1] === "github" && hostnameParts[2] === "io") {
       owner = hostnameParts[0];
+      repo = owner + ".github.io"; // Default for root user repos
     }
     const pathParts = window.location.pathname.split('/');
-    if (pathParts[1] && pathParts[1] !== "") {
+    if (pathParts[1] && pathParts[1] !== "" && !pathParts[1].endsWith(".html") && pathParts[1] !== "index.html") {
       repo = pathParts[1];
     }
 
@@ -383,7 +384,7 @@
       const body = document.getElementById("settingsBody");
       const arrow = document.getElementById("settingsArrow");
       body.classList.toggle("active");
-      arrow.textContent = body.classList.contains("active") ? "â–²" : "â–¼";
+      arrow.textContent = body.classList.contains("active") ? "▲" : "▼";
     }
 
     function autoParseLink() {
